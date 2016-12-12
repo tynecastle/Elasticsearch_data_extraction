@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # 
-# This script performs full dump for any ES index.
+# This script performs full dump for any Elasticsearch index.
 # Can be run on an AWS node, where python module 'elasticsearch' is installed.
 # The '--url' argument is required, where the internal domain name and port of the
 # target cluster is provided.
-# binnum range should be provided as input to this script.
+# The '--index' argument must be specified because this script process single index only.
+# The '--path' is mandatory to specify the parent directory of indices.
+# The 'binnum' range should be provided as input to this script.
 # The standard ouput should be redirected to a log file for the use of report generation.
 #
-# Last updated: Dec 4, 2016
+# Last updated: Dec 11, 2016
 #
 
 import os
@@ -128,6 +130,11 @@ def process_es(args):
     makeDir(index_path)
     binid_end = binid_max
     last_chunk = False
+
+    tool_path = os.path.dirname(os.path.realpath(__file__))
+    query_path = tool_path + "/" + args.query
+    if os.path.isfile(query_path):
+        query_extra = json.load(query_path)
     
     out_log('START DUMP %s' % args.index)
     
@@ -138,6 +145,8 @@ def process_es(args):
         if end == binid_end:
             last_chunk = True
         query = {"query" : {"bool" : {"must" : [{"range": {"binnum": {"gte":args.binnum_start, "lt":args.binnum_end}}}, {"range": {"binid": {"gte":start, "lt":end}}}]}}}
+        if len(query_extra):
+            query['query']['bool']['must'].append(query_extra)
         if args.fields[0] != 'all':
             query["fields"] = args.fields
             for i in range(len(query["fields"])):
@@ -167,7 +176,8 @@ if __name__ == '__main__':
     parser.add_argument("-k", "--bulk_size", type=int, default=512, help="the doc count in one binid range")
     parser.add_argument("-b", "--batch_size", type=int, default=1000, help="the number of doc to process per request")
     parser.add_argument("-v", "--verbose", action='store_true', help="enable verbose output")
-    parser.add_argument("-f", "--fields", nargs="+", type=str, default="all", help="the specific fields to be extracted")
+    parser.add_argument("-f", "--fields", nargs="+", type=str, default="all", help="the specific fields to be processed")
+    parser.add_argument("-q", "--query", type=str, default="", help="the specific fields to be processed")
 
     m_args = parser.parse_args()
     
@@ -175,12 +185,6 @@ if __name__ == '__main__':
     m_args.binnum_start = int(m_args.binnum_start)
     m_args.binnum_end = int(m_args.binnum_end)
 
-#    log('url: %s' % m_args.url)
-#    log('bulk_size: %s' % m_args.bulk_size)
-#    log('batch_size: %s' % m_args.batch_size)
-#    log('binnum_start: %s' % m_args.binnum_start)
-#    log('binnum_end: %s' % m_args.binnum_end)
-    
     producer = threading.Thread(target=process_es, args=(m_args,))
     consumer = threading.Thread(target=out_put, args=(allow_file_size, m_args))
 
