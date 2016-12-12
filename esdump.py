@@ -131,10 +131,10 @@ def process_es(args):
     binid_end = binid_max
     last_chunk = False
 
-    tool_path = os.path.dirname(os.path.realpath(__file__))
-    query_path = tool_path + "/" + args.query
-    if os.path.isfile(query_path):
-        query_extra = json.load(query_path)
+#    tool_path = os.path.dirname(os.path.realpath(__file__))
+#    query_path = tool_path + "/" + args.query
+#    if os.path.isfile(query_path):
+#        query_extra = json.load(query_path)
     
     out_log('START DUMP %s' % args.index)
     
@@ -145,8 +145,8 @@ def process_es(args):
         if end == binid_end:
             last_chunk = True
         query = {"query" : {"bool" : {"must" : [{"range": {"binnum": {"gte":args.binnum_start, "lt":args.binnum_end}}}, {"range": {"binid": {"gte":start, "lt":end}}}]}}}
-        if len(query_extra):
-            query['query']['bool']['must'].append(query_extra)
+#        if len(query_extra):
+#            query['query']['bool']['must'].append(query_extra)
         if args.fields[0] != 'all':
             query["fields"] = args.fields
             for i in range(len(query["fields"])):
