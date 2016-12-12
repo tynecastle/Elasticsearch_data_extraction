@@ -116,7 +116,8 @@ do
     ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "[[ -d $datapath ]] || mkdir -p $datapath"
     #ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"binnum_range: ${binnum_arr[$n]}\" > $espath/dump_${dateStamp}_${n}.log"
     ## Eileen modify 2016-12-08:
-    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo -e \"host: ${nodes[$n]}\"\n\"binnum_range: ${binnum_arr[$n]}\" > $espath/dump_${dateStamp}_${n}.log"
+    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"host: ${nodes[$n]}\" >> $espath/dump_${dateStamp}_${n}.log"
+    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"binnum_range: ${binnum_arr[$n]}\" >> $espath/dump_${dateStamp}_${n}.log"
 done
 
 ## execute the dump operation on the specified nodes concurrently, index by index
