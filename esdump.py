@@ -9,7 +9,7 @@
 # The 'binnum' range should be provided as input to this script.
 # The standard ouput should be redirected to a log file for the use of report generation.
 #
-# Last updated: Dec 11, 2016
+# Last updated: Dec 13, 2016
 #
 
 import os
@@ -51,7 +51,7 @@ def get_count(es, args):
 
 
 def seq2str(sequence):
-    return ' '.join(str(elem) for elem in sequence)
+    return ','.join(str(elem) for elem in sequence)
 
 
 def roundOfPower2(number):
@@ -131,10 +131,13 @@ def process_es(args):
     binid_end = binid_max
     last_chunk = False
 
-#    tool_path = os.path.dirname(os.path.realpath(__file__))
-#    query_path = tool_path + "/" + args.query
-#    if os.path.isfile(query_path):
-#        query_extra = json.load(query_path)
+    if len(args.query_path):
+        if os.path.isfile(args.query_path):
+            query_file = open(args.query_path)
+            query_extra = json.load(query_file)
+        else:
+            print 'Query file %s is not found!' % args.query_path
+            sys.exit(1)
     
     out_log('START DUMP %s' % args.index)
     
@@ -145,8 +148,8 @@ def process_es(args):
         if end == binid_end:
             last_chunk = True
         query = {"query" : {"bool" : {"must" : [{"range": {"binnum": {"gte":args.binnum_start, "lt":args.binnum_end}}}, {"range": {"binid": {"gte":start, "lt":end}}}]}}}
-#        if len(query_extra):
-#            query['query']['bool']['must'].append(query_extra)
+        if len(query_extra):
+            query['query']['bool']['must'].append(query_extra)
         if args.fields[0] != 'all':
             query["fields"] = args.fields
             for i in range(len(query["fields"])):
@@ -177,7 +180,7 @@ if __name__ == '__main__':
     parser.add_argument("-b", "--batch_size", type=int, default=1000, help="the number of doc to process per request")
     parser.add_argument("-v", "--verbose", action='store_true', help="enable verbose output")
     parser.add_argument("-f", "--fields", nargs="+", type=str, default="all", help="the specific fields to be processed")
-    parser.add_argument("-q", "--query", type=str, default="", help="the specific fields to be processed")
+    parser.add_argument("-q", "--query_path", type=str, default="", help="the abstract path to the file containing a query")
 
     m_args = parser.parse_args()
     

@@ -4,7 +4,7 @@
 # $2 - name of data directory
 # $3 - number of nodes
 #
-# Last updated: Dec 12, 2016
+# Last updated: Dec 14, 2016
 #
 
 ssh_opt="-o LogLevel=quiet -o StrictHostKeyChecking=no"
@@ -52,7 +52,7 @@ shift 2
 #    fields="$@"
 #fi
 
-while getopts 'af:s:b:q' OPTION
+while getopts 'af:s:b:q:n:' OPTION
 do
     case $OPTION in
     a)
@@ -68,7 +68,10 @@ do
         batchid="$OPTARG"
         ;;
     q)
-        hasquery="Y"
+        query_dsl="$OPTARG"
+        ;;
+    n)
+        binnum_arr="$OPTARG"
         ;;
 	esac
 done
@@ -93,7 +96,6 @@ fi
 
 nodes_number=`sh dumpnodes.sh -l|wc -l`
 nodes=(`sh dumpnodes.sh -l`)
-binnum_arr=(`python binnumchunk.py -n$nodes_number`)
 
 ## get the latest batch ID from s3://tr-search-data/1.5/dev/incrementals/ if not provided as an argument
 if [ "$batchid" == "" ]
@@ -104,12 +106,31 @@ then
 fi
 datapath="${data_dir}/${batchid}"
 
+## if a specific query is provided, write it to a file, otherwise delete this file in case previously created
+if [ "$query_dsl" != "" ]
+then
+    echo $query_dsl > $queryfile
+    querypath="${toolpath}/${queryfile}"
+else
+    [ -f $queryfile ] && rm -f $queryfile
+fi
+
+## calculate the binnum pairs required by the python dump script, if not provided as an argument
+if [ "$binnum_arr" == "" ]
+then
+    binnum_arr=(`python binnumchunk.py -n$nodes_number`)
+else
+    bstart=$(echo $binnum_arr | cut -d',' -f1)
+    bend=$(echo $binnum_arr | cut -d',' -f2)
+    binnum_arr=(`python binnumchunk.py -s$bstart -e$bend -n$nodes_number`)
+fi
+
 ## deploy necessary directories and scripts to each node
 for ((n=0; n<$nodes_number; n++))
 do
     ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "[[ -d $toolpath ]] || mkdir -p $toolpath"
     scp $ssh_opt -i $keypath $dumpscript ${awsuser}@${nodes[$n]}:${toolpath}
-    if [ "$hasquery" == "Y" ]
+    if [ -f $queryfile ]
     then
         scp $ssh_opt -i $keypath $queryfile ${awsuser}@${nodes[$n]}:${toolpath}
     fi
@@ -133,7 +154,11 @@ do
     fi
     for node in ${nodes[*]}
     do
-        cmd_dump="echo ${binnum_arr[$i]} | python ${toolpath}/${dumpscript} -u $URL -i $index -p $datapath -f $fields -q $queryfile >> $espath/dump_${dateStamp}_${i}.log"
+        if [ "$query_dsl" != "" ]
+        then
+            cmd_dump="echo ${binnum_arr[$i]} | python ${toolpath}/${dumpscript} -u $URL -i $index -p $datapath -f $fields -q $querypath >> $espath/dump_${dateStamp}_${i}.log"
+        else
+            cmd_dump="echo ${binnum_arr[$i]} | python ${toolpath}/${dumpscript} -u $URL -i $index -p $datapath -f $fields >> $espath/dump_${dateStamp}_${i}.log"
         ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_dump &
         i=`expr $i + 1`
     done
