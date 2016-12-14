@@ -2,14 +2,15 @@
 # 
 # This script performs full dump for any Elasticsearch index.
 # Can be run on an AWS node, where python module 'elasticsearch' is installed.
-# The '--url' argument is required, where the internal domain name and port of the
-# target cluster is provided.
+# The '--url' argument is required, where the internal domain and ES port of target cluster are provided.
 # The '--index' argument must be specified because this script process single index only.
-# The '--path' is mandatory to specify the parent directory of indices.
+# The '--path' argument is mandatory to specify the parent directory of indices.
+# The '--fields' argument is optional, specifying the fields required in the output, defaults to "all".
+# The '--query_path' argument is only used when a customized query is presented, specifying the abstract path to the file containing a query.
 # The 'binnum' range should be provided as input to this script.
 # The standard ouput should be redirected to a log file for the use of report generation.
 #
-# Last updated: Dec 13, 2016
+# Last updated: Dec 14, 2016
 #
 
 import os
@@ -51,7 +52,7 @@ def get_count(es, args):
 
 
 def seq2str(sequence):
-    return ','.join(str(elem) for elem in sequence)
+    return ' '.join(str(elem) for elem in sequence)
 
 
 def roundOfPower2(number):
@@ -87,7 +88,6 @@ def out_put(fsize_max, args):
     seq = 0
 
     while True:
-#        print "number of items in the queue: " + Queue.Queue.qsize(queue)
         ind, ind_path, records, last_chunk = queue.get()
         for record in records:
             if current_rec_number == 0:
@@ -98,12 +98,12 @@ def out_put(fsize_max, args):
                 line = ''
                 for field in args.fields:
                     if field not in record:
-                        line = line + ' '
+                        line = line + ','
                     elif isinstance(record[field], (list,tuple)):
-                        line = line + '%s ' % seq2str(record[field])
+                        line = line + '%s,' % seq2str(record[field])
                     else:
-                        line = line + '%s ' % record[field]
-                result = line.strip() + '\n'
+                        line = line + '%s,' % record[field]
+                result = line.strip(',') + '\n'
             else:
                 line_id = '{ "index" : { "_id" : "%s" } }' % record['_id']
                 line_content = json.dumps(record['_source'], ensure_ascii=False)
@@ -163,10 +163,6 @@ def process_es(args):
             results = elasticsearch.helpers.scan(es, query=query, index=args.index, size=args.batch_size, scroll='5m', request_timeout=120)
 
         queue.put((args.index, index_path, results, last_chunk))
-    
-
-def log(what):
-    print what
     
 
 if __name__ == '__main__':

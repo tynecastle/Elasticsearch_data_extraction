@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# $1 - cluster_URL:port
+# $1 - CLUSTER_URL:PORT
 # $2 - name of data directory
-# $3 - number of nodes
+# $3 - optional arguments
 #
 # Last updated: Dec 14, 2016
 #
@@ -44,13 +44,6 @@ test ! -z "$2" || usage $0
 URL="$1"
 data_dir="${espath}/$2"
 shift 2
-
-#if [[ -z "$@" ]] || [[ "$@" == "all" ]]
-#then
-#    fields="all"
-#else
-#    fields="$@"
-#fi
 
 while getopts 'af:s:b:q:n:' OPTION
 do
@@ -159,6 +152,7 @@ do
             cmd_dump="echo ${binnum_arr[$i]} | python ${toolpath}/${dumpscript} -u $URL -i $index -p $datapath -f $fields -q $querypath >> $espath/dump_${dateStamp}_${i}.log"
         else
             cmd_dump="echo ${binnum_arr[$i]} | python ${toolpath}/${dumpscript} -u $URL -i $index -p $datapath -f $fields >> $espath/dump_${dateStamp}_${i}.log"
+        fi
         ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_dump &
         i=`expr $i + 1`
     done
@@ -211,8 +205,10 @@ info_log "END UPLOAD"
 for node in ${nodes[*]}
 do
     ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -d $backupdir ]] || mkdir -p $backupdir"
-    cmd_backup="mv $data_dir/* $backupdir && rm -rf $data_dir"
-    cmd_rmquery="[[ -f ${toolpath}/${queryfile} ]] && rm -f ${toolpath}/${queryfile}"
+    cmd_clearbackup="[[ `ls $backupdir` ]] && rm -rf ${backupdir}/*"
+    cmd_backup="mv -f ${data_dir}/* $backupdir && rm -rf $data_dir"
+    cmd_rmquery="[[ -f $querypath ]] && rm -f $querypath"
+    ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_clearbackup
     ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_backup
     ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_rmquery
 done
