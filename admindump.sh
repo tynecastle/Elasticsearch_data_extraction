@@ -208,5 +208,5 @@ for node in ${nodes[*]}
 do
     ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -d $backupdir ]] && rm -rf $backupdir"
     ssh $ssh_opt -i $keypath ${awsuser}@${node} "mv $data_dir $backupdir"
-    ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -f $querypath ]] && rm -f $querypath"
+#    ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -f $querypath ]] && rm -f $querypath"
 done
