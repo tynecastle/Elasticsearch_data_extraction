@@ -4,7 +4,7 @@
 # $2 - name of data directory
 # $3 - optional arguments
 #
-# Last updated: Dec 14, 2016
+# Last updated: Dec 17, 2016
 #
 
 ssh_opt="-o LogLevel=quiet -o StrictHostKeyChecking=no"
@@ -37,6 +37,25 @@ function usage()
     exit 1
 }
 
+## upload the dumped files to S3 storage
+function upload_S3()
+{
+    info_log "START UPLOAD"
+    if [ "$allfields" == "Y" ]
+    then
+        dumpmode="full"
+    else
+        dumpmode="id"
+    fi
+    for node in ${nodes[*]} 
+    do
+        scp $ssh_opt -i $keypath $uploadscript ${awsuser}@${node}:${toolpath}
+        cmd_upload="sh ${toolpath}/${uploadscript} $dumpmode $data_dir $batchid"
+        ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_upload &
+    done
+    wait
+    info_log "END UPLOAD"
+}
 
 test ! -z "$1" || usage $0
 test ! -z "$2" || usage $0
@@ -130,7 +149,7 @@ do
     ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "[[ -d $datapath ]] || mkdir -p $datapath"
     #ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"binnum_range: ${binnum_arr[$n]}\" > $espath/dump_${dateStamp}_${n}.log"
     ## Eileen modify 2016-12-08:
-    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"host: ${nodes[$n]}\" >> $espath/dump_${dateStamp}_${n}.log"
+    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"host: ${nodes[$n]}\" > $espath/dump_${dateStamp}_${n}.log"
     ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"binnum_range: ${binnum_arr[$n]}\" >> $espath/dump_${dateStamp}_${n}.log"
 done
 
@@ -183,32 +202,11 @@ done
 wait
 info_log "END RENAME"
 
-## upload the dumped files to S3 storage
-info_log "START UPLOAD"
-if [ "$allfields" == "Y" ]
-then
-    dumpmode="full"
-else
-    dumpmode="id"
-fi
-for node in ${nodes[*]} 
-do
-    scp $ssh_opt -i $keypath $uploadscript ${awsuser}@${node}:${toolpath}
-    cmd_upload="sh ${toolpath}/${uploadscript} $dumpmode $data_dir $batchid"
-    ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_upload &
-done
-wait
-info_log "END UPLOAD"
-
-## do backup job: make backup for dumped files and remove 'data' folder;
+## do backup job: clear previous backups and make backup for files dumped this time;
 ## remove query file on each node
 for node in ${nodes[*]}
 do
-    ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -d $backupdir ]] || mkdir -p $backupdir"
-    cmd_clearbackup="[[ `ls $backupdir` ]] && rm -rf ${backupdir}/*"
-    cmd_backup="mv -f ${data_dir}/* $backupdir && rm -rf $data_dir"
-    cmd_rmquery="[[ -f $querypath ]] && rm -f $querypath"
-    ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_clearbackup
-    ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_backup
-    ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_rmquery
+    ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -d $backupdir ]] && rm -rf $backupdir"
+    ssh $ssh_opt -i $keypath ${awsuser}@${node} "mv $data_dir $backupdir"
+    ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -f $querypath ]] && rm -f $querypath"
 done

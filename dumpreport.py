@@ -202,13 +202,13 @@ if __name__ == "__main__":
     for coll, item in  coll_table.iteritems():
         count = get_count(es, coll)
         succ = 'N'
-        if nodes_num == item['nodes_num'] and count == item['dump_count']:
+        if nodes_num == item['nodes_num'] and item['real_count'] == item['dump_count']:
             succ = 'Y'
         else:
             have_error = True
         #print "%-14s%10d%23f%18f" % (coll, count, (speed_table[coll]/number), (time_table[coll]/ 60.0/60.0)/number)
-        speed, latency = get_speed_latency(item, count)
-        print "%-14s%10d%15d%23f%18f%10s" % (coll, count, item['dump_count'], speed, latency, succ)
+        speed, latency = get_speed_latency(item, item['dump_count'])
+        print "%-14s%10d%15d%23f%18f%10s" % (coll, item['real_count'], item['dump_count'], speed, latency, succ)
 
     print "*" * 90
     total_time = get_total_time(coll_table)
