@@ -83,6 +83,7 @@ do
         batchid="$OPTARG"
         ;;
     q)
+	    echo "$OPTARG"
         query_dsl="$OPTARG"
         ;;
     n)
