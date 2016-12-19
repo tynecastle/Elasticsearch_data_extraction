@@ -57,6 +57,9 @@ function upload_S3()
     info_log "END UPLOAD"
 }
 
+echo $0
+echo $*
+
 test ! -z "$1" || usage $0
 test ! -z "$2" || usage $0
 
