@@ -149,7 +149,7 @@ echo "Uploading scripts to each node ..."
 ## deploy necessary directories and scripts to each node
 for ((n=0; n<$nodes_number; n++))
 do
-    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "[[ -d $toolpath ]] || mkdir -p $toolpath"
+    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "[[ -d $toolpath ]] && rm -rf $toolpath ; mkdir -p $toolpath"
     scp $ssh_opt -i $keypath $dumpscript ${awsuser}@${nodes[$n]}:${toolpath}
     if [ -f $queryfile ]
     then
