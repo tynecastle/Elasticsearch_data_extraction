@@ -118,6 +118,7 @@ then
 fi
 datapath="${data_dir}/${batchid}"
 
+echo "query_dsl: $query_dsl"
 ## if a specific query is provided, write it to a file, otherwise delete this file in case previously created
 if [[ "$query_dsl" != "" ]]
 then
