@@ -121,12 +121,15 @@ datapath="${data_dir}/${batchid}"
 ## if a specific query is provided, write it to a file, otherwise delete this file in case previously created
 if [ "$query_dsl" != "" ]
 then
+    echo "Creating query file ..."
     echo $query_dsl > $queryfile
     querypath="${toolpath}/${queryfile}"
 else
+    echo "Removing query file ..."
     [ -f $queryfile ] && rm -f $queryfile
 fi
 
+echo "Calculating the binnum pairs ..."
 ## calculate the binnum pairs required by the python dump script, if not provided as an argument
 if [ "$binnum_arr" == "" ]
 then
@@ -137,6 +140,7 @@ else
     binnum_arr=(`python binnumchunk.py -s$bstart -e$bend -n$nodes_number`)
 fi
 
+echo "Uploading scripts to each node ..."
 ## deploy necessary directories and scripts to each node
 for ((n=0; n<$nodes_number; n++))
 do
