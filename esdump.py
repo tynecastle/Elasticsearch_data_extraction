@@ -186,11 +186,13 @@ if __name__ == '__main__':
     parser.add_argument("-k", "--bulk_size", type=int, default=512, help="the doc count in one binid range")
     parser.add_argument("-b", "--batch_size", type=int, default=1000, help="the number of doc to process per request")
     parser.add_argument("-v", "--verbose", action='store_true', help="enable verbose output")
-    parser.add_argument("-f", "--fields", nargs="+", type=str, default="all", help="the specific fields to be processed")
+#    parser.add_argument("-f", "--fields", nargs="+", type=str, default="all", help="the specific fields to be processed")
+    parser.add_argument("-f", "--fields", type=str, default="all", help="the specific fields to be processed")
     parser.add_argument("-q", "--query_path", type=str, default="", help="the abstract path to the file containing a query")
 
     m_args = parser.parse_args()
-    
+
+    m_args.fields = m_args.fields.strip().split(',')
     m_args.binnum_start, m_args.binnum_end = sys.stdin.readline().strip().split(',')
     m_args.binnum_start = int(m_args.binnum_start)
     m_args.binnum_end = int(m_args.binnum_end)
