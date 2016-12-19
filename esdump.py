@@ -139,12 +139,12 @@ def process_es(args):
     last_chunk = False
 
     if len(args.query_path):
-        if os.path.isfile(args.query_path):
+#        if os.path.isfile(args.query_path):
             query_file = open(args.query_path)
             query_extra = json.load(query_file)
-        else:
-            print 'Error! Query file %s is not found!' % args.query_path
-            sys.exit(1)
+#        else:
+#            print 'Error! Query file %s is not found!' % args.query_path
+#            sys.exit(1)
     
     out_log('START DUMP %s' % args.index)
     
@@ -157,21 +157,21 @@ def process_es(args):
         query = {"query" : {"bool" : {"must" : [{"range": {"binnum": {"gte":args.binnum_start, "lt":args.binnum_end}}}, {"range": {"binid": {"gte":start, "lt":end}}}]}}}
         if len(query_extra):
             query['query']['bool']['must'].append(query_extra)
-        try:
-            if args.fields[0] != 'all':
-                query["fields"] = args.fields
-                for i in range(len(query["fields"])):
-                    if query["fields"][i] == "fuid" or query["fields"][i] == "docid":
-                        if args.index == "superunif":
-                            query["fields"][i] = "docid"
-                        else:
-                            query["fields"][i] = "fuid"
-                results = [r["fields"] for r in elasticsearch.helpers.scan(es, query=query, index=args.index, _source=False, size=args.batch_size, scroll='5m', request_timeout=120)]
-            else:
-                results = elasticsearch.helpers.scan(es, query=query, index=args.index, size=args.batch_size, scroll='5m', request_timeout=120)
-        except:
-            print "Error occured in processing this query by scan:\n" + json.dumps(query)
-            sys.exit(1)
+#        try:
+        if args.fields[0] != 'all':
+            query["fields"] = args.fields
+            for i in range(len(query["fields"])):
+                if query["fields"][i] == "fuid" or query["fields"][i] == "docid":
+                    if args.index == "superunif":
+                        query["fields"][i] = "docid"
+                    else:
+                        query["fields"][i] = "fuid"
+            results = [r["fields"] for r in elasticsearch.helpers.scan(es, query=query, index=args.index, _source=False, size=args.batch_size, scroll='5m', request_timeout=120)]
+        else:
+            results = elasticsearch.helpers.scan(es, query=query, index=args.index, size=args.batch_size, scroll='5m', request_timeout=120)
+#        except:
+#            print "Error occured in processing this query by scan:\n" + json.dumps(query)
+#            sys.exit(1)
 
         queue.put((args.index, index_path, results, last_chunk))
     
