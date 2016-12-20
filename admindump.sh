@@ -54,7 +54,7 @@ function rename()
 ## upload the dumped files to S3 storage
 function upload_S3()
 {
-    info_log "START UPLOAD"
+    info_log "START UPLOAD ($batchid)"
     if [ "$allfields" == "Y" ]
     then
         dumpmode="full"
@@ -68,7 +68,7 @@ function upload_S3()
         ssh $ssh_opt -i $keypath ${awsuser}@${node} $cmd_upload &
     done
     wait
-    info_log "END UPLOAD"
+    info_log "END UPLOAD ($batchid)"
 }
 
 ## do backup job: clear previous backups and make backup for files dumped this time;
