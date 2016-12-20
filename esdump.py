@@ -10,7 +10,7 @@
 # The 'binnum' range should be provided as input to this script.
 # The standard ouput should be redirected to a log file for the use of report generation.
 #
-# Last updated: Dec 14, 2016
+# Last updated: Dec 20, 2016
 #
 
 import os
@@ -49,12 +49,12 @@ def get_count(es, args, query_extra):
     query = {"query":{"bool":{"must":[{"range":{"binnum":{"gte":args.binnum_start, "lt":args.binnum_end}}}]}}}
     if len(query_extra):
         query['query']['bool']['must'].append(query_extra)
-    try:
-        rep = es.count(index=args.index, body=query)
-        return rep['count']
-    except:
-        print "Error occured in processing this query by count:\n" + json.dumps(query)
-        sys.exit(1)
+#    try:
+    rep = es.count(index=args.index, body=query)
+    return rep['count']
+#    except:
+#        print "Error occured in processing this query by count:\n" + json.dumps(query)
+#        sys.exit(1)
 
 
 def seq2str(sequence):
@@ -139,12 +139,12 @@ def process_es(args):
     last_chunk = False
 
     if len(args.query_path):
-#        if os.path.isfile(args.query_path):
+        if os.path.isfile(args.query_path):
             query_file = open(args.query_path)
             query_extra = json.load(query_file)
-#        else:
-#            print 'Error! Query file %s is not found!' % args.query_path
-#            sys.exit(1)
+        else:
+            print 'Error! Query file %s is not found!' % args.query_path
+            sys.exit(1)
     
     out_log('START DUMP %s' % args.index)
     

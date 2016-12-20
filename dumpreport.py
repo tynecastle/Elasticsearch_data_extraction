@@ -34,7 +34,7 @@
 # Sample command:
 # $ cat dump_20161011_data* | python dumpreport.py -n 5
 #
-# Last updated: Oct 25, 2016
+# Last updated: Dec 20, 2016
 #
 
 import getopt
@@ -135,8 +135,9 @@ def collection_dump_count(line, coll_table, host, host_table):
     return hits
     
     
-def get_count(es, coll):
-    query = {"query":{"match_all":{}}}
+def get_count(es, coll, query):
+    if not len(query):
+        query = {"query":{"match_all":{}}}
     rep = es.count(index=coll, body=query)
     return rep['count']
 
@@ -147,18 +148,21 @@ binnum_range_tmp = re.compile(r'binnum_range: (.+)')
 if __name__ == "__main__":
 	
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "n:u:")
+        opts, args = getopt.getopt(sys.argv[1:], "n:u:q:")
     except getopt.GetoptError, err:
         print str(err)
         sys.exit(2)
 
     nodes_num = 0
     host = ''
+    query = ''
     for o, a in opts:
         if o == "-n":
             nodes_num = int(a)
         elif o == "-u":
             host = a
+        elif o == "-q":
+            query = a
 	
     stat = "end"
     print "%-14s%10s%15s%23s%18s%10s" % ("collection", "real hits", "dumped hits", "speed (item/hour)", "time (hours)", "success")
@@ -200,15 +204,15 @@ if __name__ == "__main__":
     es = elasticsearch.Elasticsearch(host, timeout=120)  
     have_error = False    
     for coll, item in  coll_table.iteritems():
-        count = get_count(es, coll)
+        count = get_count(es, coll, query)
         succ = 'N'
-        if nodes_num == item['nodes_num'] and item['real_count'] == item['dump_count']:
+        if nodes_num == item['nodes_num'] and count == item['dump_count']:
             succ = 'Y'
         else:
             have_error = True
         #print "%-14s%10d%23f%18f" % (coll, count, (speed_table[coll]/number), (time_table[coll]/ 60.0/60.0)/number)
         speed, latency = get_speed_latency(item, item['dump_count'])
-        print "%-14s%10d%15d%23f%18f%10s" % (coll, item['real_count'], item['dump_count'], speed, latency, succ)
+        print "%-14s%10d%15d%23f%18f%10s" % (coll, count, item['dump_count'], speed, latency, succ)
 
     print "*" * 90
     total_time = get_total_time(coll_table)
@@ -230,5 +234,6 @@ if __name__ == "__main__":
                         print "%-20s%14s%16s%10d%15d" % (host, coll, item["binnum_range"], real_hits, dumped_hits) 
                 else:
                     print "%-20s%14s%16s%10d%15d" % (host, coll, item["binnum_range"], real_hits, dumped_hits)
-    
-
+        sys.exit(1)
+    else:
+        sys.exit(0)

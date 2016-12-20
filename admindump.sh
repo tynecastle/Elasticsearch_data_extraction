@@ -4,7 +4,7 @@
 # $2 - name of data directory
 # $3 - optional arguments
 #
-# Last updated: Dec 17, 2016
+# Last updated: Dec 20, 2016
 #
 
 ssh_opt="-o LogLevel=quiet -o StrictHostKeyChecking=no"
@@ -37,6 +37,20 @@ function usage()
     exit 1
 }
 
+## rename the dumped files to make them consecutive across nodes
+function rename()
+{
+    info_log "START RENAME"
+    for ((m=0; m<$nodes_number; m++))
+    do
+        scp $ssh_opt -i $keypath $renamescript ${awsuser}@${nodes[$m]}:${toolpath}
+        cmd_rename="sh ${toolpath}/${renamescript} $datapath $m"
+        ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$m]} $cmd_rename &
+    done
+    wait
+    info_log "END RENAME"
+}
+
 ## upload the dumped files to S3 storage
 function upload_S3()
 {
@@ -57,8 +71,18 @@ function upload_S3()
     info_log "END UPLOAD"
 }
 
-echo $0
-echo $*
+## do backup job: clear previous backups and make backup for files dumped this time;
+## remove query file on each node
+function backup_cleanup()
+{
+    for node in ${nodes[*]}
+    do
+        ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -d $backupdir ]] && rm -rf $backupdir"
+        ssh $ssh_opt -i $keypath ${awsuser}@${node} "mv $data_dir $backupdir"
+        ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -f $querypath ]] && rm -f $querypath"
+    done
+}
+
 
 test ! -z "$1" || usage $0
 test ! -z "$2" || usage $0
@@ -83,7 +107,6 @@ do
         batchid="$OPTARG"
         ;;
     q)
-	    echo "-q: $OPTARG"
         query_dsl="$OPTARG"
         ;;
     n)
@@ -122,19 +145,15 @@ then
 fi
 datapath="${data_dir}/${batchid}"
 
-echo "query_dsl: $query_dsl"
 ## if a specific query is provided, write it to a file, otherwise delete this file in case previously created
 if [[ "$query_dsl" != "" ]]
 then
-    echo "Creating query file ..."
     echo $query_dsl > $queryfile
     querypath="${toolpath}/${queryfile}"
 else
-    echo "Removing query file ..."
     [ -f $queryfile ] && rm -f $queryfile
 fi
 
-echo "Calculating the binnum pairs ..."
 ## calculate the binnum pairs required by the python dump script, if not provided as an argument
 if [ "$binnum_arr" == "" ]
 then
@@ -145,7 +164,6 @@ else
     binnum_arr=(`python binnumchunk.py -s$bstart -e$bend -n$nodes_number`)
 fi
 
-echo "Uploading scripts to each node ..."
 ## deploy necessary directories and scripts to each node
 for ((n=0; n<$nodes_number; n++))
 do
@@ -155,8 +173,7 @@ do
     then
         scp $ssh_opt -i $keypath $queryfile ${awsuser}@${nodes[$n]}:${toolpath}
     fi
-    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "[[ -d $datapath ]] || mkdir -p $datapath"
-    #ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"binnum_range: ${binnum_arr[$n]}\" > $espath/dump_${dateStamp}_${n}.log"
+    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "[[ -d $data_dir ]] && rm -rf $data_dir ; mkdir -p $datapath"
     ## Eileen modify 2016-12-08:
     ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"host: ${nodes[$n]}\" > $espath/dump_${dateStamp}_${n}.log"
     ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$n]} "echo \"binnum_range: ${binnum_arr[$n]}\" >> $espath/dump_${dateStamp}_${n}.log"
@@ -198,24 +215,22 @@ for node in ${nodes[*]}
 do
     scp $ssh_opt -i $keypath ${awsuser}@${node}:$espath/dump_${dateStamp}_*.log $log_path
 done
-cat $log_path/dump_${dateStamp}_*.log | python ./dumpreport.py -n $nodes_number -u $URL 
+if [ "$query_dsl" != "" ]
+then
+    cat $log_path/dump_${dateStamp}_*.log | python dumpreport.py -n $nodes_number -u $URL -q $query_dsl
+else
+    cat $log_path/dump_${dateStamp}_*.log | python dumpreport.py -n $nodes_number -u $URL
+fi
+dump_success=`echo $?`
 
-## rename the dumped files to make them consecutive across nodes
-info_log "START RENAME"
-for ((m=0; m<$nodes_number; m++))
-do
-    scp $ssh_opt -i $keypath $renamescript ${awsuser}@${nodes[$m]}:${toolpath}
-    cmd_rename="sh ${toolpath}/${renamescript} $datapath $m"
-    ssh $ssh_opt -i $keypath ${awsuser}@${nodes[$m]} $cmd_rename &
-done
-wait
-info_log "END RENAME"
-
-## do backup job: clear previous backups and make backup for files dumped this time;
-## remove query file on each node
-for node in ${nodes[*]}
-do
-    ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -d $backupdir ]] && rm -rf $backupdir"
-    ssh $ssh_opt -i $keypath ${awsuser}@${node} "mv $data_dir $backupdir"
-#    ssh $ssh_opt -i $keypath ${awsuser}@${node} "[[ -f $querypath ]] && rm -f $querypath"
-done
+## In case of dump success, do rename, upload and backup
+if [ $dump_success -eq 0 ]
+then
+    info_log "DUMP completed successfully!"
+    rename
+    upload_S3
+    backup_cleanup
+else
+    echo -e "\nDump failed, ignore rename, upload and backup processes."
+    exit 1
+fi
